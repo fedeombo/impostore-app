@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-slate-950 text-slate-100 select-none">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>L'Impostore</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Impedisce selezioni accidentali o zoom su iOS */
+    body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col justify-between p-4 max-w-md mx-auto">
+
+  <!-- HEADER -->
+  <header class="text-center py-2">
+    <h1 class="text-2xl font-black tracking-wider text-rose-500 uppercase">L'Impostore</h1>
+  </header>
+
+  <!-- SCHERMATA 1: SETUP -->
+  <section id="screen-setup" class="space-y-4 my-auto">
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg space-y-4">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Giocatori (uno per riga)</label>
+        <textarea id="input-players" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-rose-500" placeholder="Fede&#10;Marco&#10;Clara&#10;Michi"></textarea>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-semibold text-slate-300">Numero Impostori:</label>
+        <select id="select-impostors" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-sm focus:outline-none">
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Categorie</label>
+        <div id="categories-container" class="grid grid-cols-2 gap-2 text-xs">
+          <!-- Popolato via JS -->
+        </div>
+      </div>
+    </div>
+
+    <button onclick="startGame()" class="w-full py-4 bg-rose-600 hover:bg-rose-500 active:scale-95 transition-all text-white font-black rounded-xl tracking-wider uppercase shadow-lg shadow-rose-950/40">
+      Avvia Partita
+    </button>
+  </section>
+
+  <!-- SCHERMATA 2: HOLD TO REVEAL (Passa il telefono) -->
+  <section id="screen-pass" class="hidden flex-col justify-between h-[75vh] my-auto text-center">
+    <div class="space-y-2">
+      <p class="text-xs uppercase font-bold tracking-widest text-slate-400">Passa il telefono a</p>
+      <h2 id="current-player-name" class="text-3xl font-black text-white">Nome</h2>
+      <p class="text-xs text-slate-500">Non farti spiare lo schermo dagli altri!</p>
+    </div>
+
+    <!-- AREA TOUCH DA PREMERE -->
+    <div id="hold-area" class="w-full h-64 bg-slate-900 border-2 border-dashed border-rose-500/40 rounded-3xl flex flex-col items-center justify-center p-6 transition-all active:border-rose-500">
+      
+      <!-- Testo visibile di default -->
+      <div id="hold-prompt" class="space-y-2 pointer-events-none">
+        <div class="text-4xl">👆</div>
+        <p class="text-sm font-bold uppercase tracking-wider text-slate-300">Tieni premuto qui</p>
+        <p class="text-xs text-slate-500">Rilascia per nascondere subito</p>
+      </div>
+
+      <!-- Contenuto segreto mostrato SOLO durante il tocco -->
+      <div id="secret-card" class="hidden space-y-3 pointer-events-none">
+        <span id="card-badge" class="px-3 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-slate-800 text-slate-300">Ruolo</span>
+        <h3 id="card-word" class="text-2xl font-black text-rose-400">PAROLA</h3>
+        <p id="card-hint" class="text-xs text-slate-300 italic px-2">Indizio...</p>
+      </div>
+    </div>
+
+    <button id="btn-next-player" onclick="nextPlayerStep()" class="w-full py-4 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-slate-200 font-bold rounded-xl tracking-wider uppercase">
+      Ho Memorizzato
+    </button>
+  </section>
+
+  <!-- SCHERMATA 3: DISCUSSIONE E REVEAL -->
+  <section id="screen-discuss" class="hidden flex-col justify-between h-[75vh] my-auto text-center">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-slate-200">Tutti hanno visto!</h2>
+      <p class="text-xs text-slate-400">Discutete, fate domande e trovate l'infiltrato.</p>
+    </div>
+
+    <!-- TIMER -->
+    <div class="my-6">
+      <div id="timer-display" class="text-6xl font-black tracking-tight text-rose-500 font-mono">03:00</div>
+      <button onclick="toggleTimer()" id="btn-timer-toggle" class="mt-3 text-xs uppercase tracking-widest font-bold text-slate-400 hover:text-white">Pausa / Riprendi</button>
+    </div>
+
+    <!-- RISULTATO FINALE -->
+    <div id="reveal-box" class="hidden bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-2">
+      <p class="text-xs text-slate-400 uppercase font-bold">L'impostore era:</p>
+      <p id="reveal-impostors" class="text-xl font-black text-rose-400"></p>
+      <p class="text-xs text-slate-400 uppercase font-bold mt-2">La parola segreta era:</p>
+      <p id="reveal-word" class="text-lg font-bold text-white"></p>
+    </div>
+
+    <div class="space-y-3">
+      <button id="btn-reveal" onclick="revealImpostor()" class="w-full py-4 bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all text-white font-bold rounded-xl tracking-wider uppercase">
+        Svela Impostore
+      </button>
+      <button onclick="startNextRound()" class="w-full py-4 bg-rose-600 hover:bg-rose-500 active:scale-95 transition-all text-white font-black rounded-xl tracking-wider uppercase">
+        Nuovo Round
+      </button>
+    </div>
+  </section>
+
+  <!-- LOGICA JAVASCRIPT VANILLA -->
+  <script>
+    let sessionId = null;
+    let roundData = null;
+    let currentCardIndex = 0;
+    let timerInterval = null;
+    let timeLeft = 600; // 3 minuti
+
+    // Carica le categorie disponibili all'avvio
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        const container = document.getElementById('categories-container');
+        container.innerHTML = '';
+        data.categories.forEach(cat => {
+          container.innerHTML += `
+            <label class="flex items-center space-x-2 bg-slate-950 p-2 rounded-lg border border-slate-800 cursor-pointer">
+              <input type="checkbox" name="category" value="${cat}" checked class="accent-rose-500">
+              <span>${cat}</span>
+            </label>
+          `;
+        });
+      } catch (err) {
+        console.error("Errore recupero categorie", err);
+      }
+    });
+
+    // Switch tra schermate
+    function showScreen(screenId) {
+      ['screen-setup', 'screen-pass', 'screen-discuss'].forEach(id => {
+        const el = document.getElementById(id);
+        if (id === screenId) {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        } else {
+          el.classList.remove('flex');
+          el.classList.add('hidden');
+        }
+      });
+    }
+
+    // 1. Setup e inizio partita
+    async function startGame() {
+      const playersRaw = document.getElementById('input-players').value.trim();
+      const players = playersRaw.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+      const impostorsCount = parseInt(document.getElementById('select-impostors').value);
+
+      const checkboxes = document.querySelectorAll('input[name="category"]:checked');
+      const categories = Array.from(checkboxes).map(cb => cb.value);
+
+      if (players.length < 3) {
+        alert("Inserisci almeno 3 giocatori!");
+        return;
+      }
+      if (categories.length === 0) {
+        alert("Seleziona almeno una categoria!");
+        return;
+      }
+
+      // Start Sessione API
+      const resSession = await fetch('/api/session/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories })
+      });
+      const dataSession = await resSession.json();
+      sessionId = dataSession.session_id;
+
+      // Genera primo round
+      await fetchRound(players, impostorsCount);
+    }
+
+    async function fetchRound(players, numImpostors) {
+      const res = await fetch('/api/round/next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          players: players,
+          num_impostors: numImpostors
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Errore durante la generazione del round");
+        return;
+      }
+
+      roundData = await res.json();
+      currentCardIndex = 0;
+      setupPassScreen();
+    }
+
+    // 2. Meccanica Passa-Telefono & Hold-To-Reveal
+    function setupPassScreen() {
+      showScreen('screen-pass');
+      const card = roundData.cards[currentCardIndex];
+      document.getElementById('current-player-name').innerText = card.player;
+      
+      // Reset area segreta
+      hideSecret();
+
+      // Prepara i dati della carta
+      const badge = document.getElementById('card-badge');
+      const word = document.getElementById('card-word');
+      const hint = document.getElementById('card-hint');
+
+      if (card.is_impostor) {
+        badge.innerText = "IMPOSTORE";
+        badge.className = "px-3 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-rose-600 text-white";
+        word.innerText = "SEI L'IMPOSTORE";
+        word.className = "text-xl font-black text-rose-500";
+      } else {
+        badge.innerText = `CIVILE (${card.category})`;
+        badge.className = "px-3 py-1 text-xs font-black uppercase tracking-wider rounded-full bg-emerald-600 text-white";
+        word.innerText = card.word;
+        word.className = "text-2xl font-black text-emerald-400";
+      }
+      hint.innerText = card.hint;
+    }
+
+    function showSecret() {
+      document.getElementById('hold-prompt').classList.add('hidden');
+      document.getElementById('secret-card').classList.remove('hidden');
+      document.getElementById('hold-area').classList.add('bg-slate-800', 'border-solid');
+    }
+
+    function hideSecret() {
+      document.getElementById('secret-card').classList.add('hidden');
+      document.getElementById('hold-prompt').classList.remove('hidden');
+      document.getElementById('hold-area').classList.remove('bg-slate-800', 'border-solid');
+    }
+
+    // Eventi Touch / Mouse per Hold to Reveal
+    const holdArea = document.getElementById('hold-area');
+
+    holdArea.addEventListener('touchstart', (e) => { e.preventDefault(); showSecret(); });
+    holdArea.addEventListener('touchend', (e) => { e.preventDefault(); hideSecret(); });
+    holdArea.addEventListener('mousedown', () => showSecret());
+    holdArea.addEventListener('mouseup', () => hideSecret());
+    holdArea.addEventListener('mouseleave', () => hideSecret());
+
+    function nextPlayerStep() {
+      currentCardIndex++;
+      if (currentCardIndex < roundData.cards.length) {
+        setupPassScreen();
+      } else {
+        startDiscussionPhase();
+      }
+    }
+
+    // 3. Fase di Discussione & Timer
+    function startDiscussionPhase() {
+      showScreen('screen-discuss');
+      document.getElementById('reveal-box').classList.add('hidden');
+      document.getElementById('btn-reveal').classList.remove('hidden');
+      
+      timeLeft = 600; // 3 min
+      updateTimerDisplay();
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (timeLeft > 0) {
+          timeLeft--;
+          updateTimerDisplay();
+        } else {
+          clearInterval(timerInterval);
+        }
+      }, 1000);
+    }
+
+    function toggleTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      } else {
+        startTimer();
+      }
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const seconds = (timeLeft % 60).toString().padStart(2, '0');
+      document.getElementById('timer-display').innerText = `${minutes}:${seconds}`;
+    }
+
+    function revealImpostor() {
+      clearInterval(timerInterval);
+      document.getElementById('reveal-impostors').innerText = roundData.impostors.join(', ');
+      document.getElementById('reveal-word').innerText = roundData.secret_word;
+      document.getElementById('reveal-box').classList.remove('hidden');
+      document.getElementById('btn-reveal').classList.add('hidden');
+    }
+
+    async function startNextRound() {
+      const players = roundData.cards.map(c => c.player);
+      const numImpostors = roundData.impostors.length;
+      await fetchRound(players, numImpostors);
+    }
+  </script>
+</body>
+</html>
